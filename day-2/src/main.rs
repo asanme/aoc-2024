@@ -52,73 +52,75 @@ fn parse_vector(content_vector: &Vec<String>) -> Vec<Vec<i32>> {
     parsed_content
 }
 
-fn is_vector_ordered(v: &Vec<i32>) -> (bool, Order) {
-    let mut order: Order = Order::Undefined;
-    let mut is_ordered = true;
+fn are_values_safe(v1: i32, v2: i32) -> bool {
+    let r = (v1 - v2).abs();
+    r >= 1 && r < 4
+}
 
-    let mut current_value = v[0];
-    for i in 1..v.len() {
-        let next_value = v[i];
+fn is_report_safe(report: &Vec<i32>, depth: i32) -> bool {
+    // Base case, if an element was already removed then it's not valid
+    if depth > 1 {
+        return false;
+    }
 
-        match order {
+    let mut is_safe = true;
+    let mut report_order: Order = Order::Undefined;
+    for i in 0..report.len() - 1 {
+        let current_value = report[i];
+        let next_value = report[i + 1];
+
+        match report_order {
             Order::Ascending => {
                 if current_value > next_value {
-                    is_ordered = false;
-                    break;
+                    is_safe = false;
                 }
             }
 
             Order::Descending => {
                 if current_value < next_value {
-                    is_ordered = false;
-                    break;
+                    is_safe = false;
                 }
             }
 
+            // Undefined can mean that the current is equal or that we haven't set the order yet
             Order::Undefined => {
                 if current_value < next_value {
-                    order = Order::Ascending
+                    report_order = Order::Ascending
                 }
+
                 if current_value > next_value {
-                    order = Order::Descending;
+                    report_order = Order::Descending;
+                }
+
+                if current_value == next_value {
+                    is_safe = false;
                 }
             }
         }
 
-        current_value = v[i];
-    }
-
-    (is_ordered, order)
-}
-
-fn is_report_safe(line: &Vec<i32>) -> bool {
-    let (is_valid, order) = is_vector_ordered(&line);
-
-    if !is_valid {
-        return false;
-    }
-
-    if order == Order::Undefined {
-        return true;
-    }
-
-    let mut current_value = line[0];
-    for i in 1..line.len() {
-        let mut level_difference = 0;
-        let next_value = line[i];
-
-        if current_value < next_value {
-            level_difference = next_value - current_value;
-        }
-        if current_value > next_value {
-            level_difference = current_value - next_value;
+        if !are_values_safe(current_value, next_value) {
+            is_safe = false;
         }
 
-        if level_difference > 3 || level_difference < 1 {
-            return false;
-        }
+        // This case includes if there's a duplicate or if the order is broken
+        if !is_safe {
+            let mut report_clone1 = report.clone();
+            let mut report_clone2 = report.clone();
 
-        current_value = line[i];
+            report_clone1.remove(i);
+            report_clone2.remove(i + 1);
+
+            let cond1 = is_report_safe(&report_clone1, depth + 1);
+            let cond2 = is_report_safe(&report_clone2, depth + 1);
+
+            if cond1 || cond2 {
+                return true;
+            }
+
+            if !cond1 && !cond2 {
+                return false;
+            }
+        }
     }
 
     true
@@ -129,10 +131,15 @@ fn main() {
     let content_vector = string_to_vector(&content);
     let reports = parse_vector(&content_vector);
 
+    are_values_safe(72, 73);
     let mut safe_reports = 0;
     for report in reports {
-        if is_report_safe(&report) {
+        let is_safe = is_report_safe(&report, 0);
+
+        if is_safe {
             safe_reports += 1;
+        } else {
+            println!("{:?}", report);
         }
     }
 
